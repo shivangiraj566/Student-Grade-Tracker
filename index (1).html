@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Grade Tracker</title>
+  <style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 20px;
+  }
+
+  h1 {
+    text-align: center;
+    color: #333;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+
+  .form-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+
+  input, button {
+    padding: 10px;
+    font-size: 16px;
+  }
+
+  button {
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #0056b3;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+
+  th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+  }
+
+  th {
+    background: #333;
+    color: white;
+  }
+
+  #avgDisplay {
+    margin-top: 20px;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+  }
+  /* Chart area styles moved here to avoid inline style */
+  #chartWrapper {
+    margin-top: 30px;
+    height: 340px;
+  }
+  #gradesChart {
+    max-height: 100%;
+  }
+  .chart-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: #0b63b6;
+    margin: 6px 0 8px 0;
+  }
+  /* visually hide but keep accessible to screen readers */
+  .sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+  .chart-caption {
+    text-align: center;
+    font-style: italic;
+    color: #666;
+    margin-top: 12px;
+  }
+  /* Hide name column when table has .hide-names */
+  .hide-names .name-col { display: none; }
+  </style>
+</head>
+<body>
+  <h1 id="pageTitle">Student Grade Tracker</h1>
+
+  <div class="container">
+    <div class="form-group">
+      <input type="text" id="studentName" placeholder="Student Name" />
+      <input type="number" id="studentGrade" placeholder="Grade (0-100)" />
+      <button onclick="addRecord()">Add</button>
+      <button onclick="loadSampleData()" title="Load sample assignments">Load sample</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th class="name-col">Name</th>
+          <th>Grade</th>
+        </tr>
+      </thead>
+      <tbody id="recordTable"></tbody>
+    </table>
+
+  <div class="chart-title sr-only">Visualizing Progress</div>
+    <div id="chartWrapper">
+      <canvas id="gradesChart" aria-label="Student grades over time" role="img"></canvas>
+    </div>
+    <div class="chart-caption">Beyond a table, JS libraries can create charts to visualize student performance over time.</div>
+
+    <div id="avgDisplay">Average Grade: 0</div>
+  </div>
+
+ 
+
+  <script>
+  (function(){
+    let records = [];
+    let gradesChart = null;
+
+    // Create chart when DOM is ready
+    function ensureChart() {
+      const ctx = document.getElementById('gradesChart').getContext('2d');
+      if (gradesChart) return;
+      // Chart.js will be loaded from CDN; if not loaded yet, wait
+      if (typeof Chart === 'undefined') {
+        // try again shortly
+        setTimeout(ensureChart, 100);
+        return;
+      }
+      // create gradient fill
+      const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+      gradient.addColorStop(0, 'rgba(54, 162, 235, 0.35)');
+      gradient.addColorStop(1, 'rgba(54, 162, 235, 0.06)');
+
+      gradesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Grades',
+            data: [],
+            borderColor: 'rgba(2, 93, 175, 1)',
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 5,
+            pointBackgroundColor: 'white',
+            pointBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: { suggestedMin: 0, suggestedMax: 100 }
+          }
+        }
+      });
+    }
+
+    // Load a sample dataset (mirrors the attached example)
+    window.loadSampleData = function() {
+      records = [
+        { name: 'Assign 1', grade: 75 },
+        { name: 'Assign 2', grade: 82 },
+        { name: 'Midterm', grade: 78 },
+        { name: 'Assign 3', grade: 90 },
+        { name: 'Final', grade: 100 }
+      ];
+  // show the visual chart title (remove sr-only)
+      const ct = document.querySelector('.chart-title');
+      if (ct) ct.classList.remove('sr-only');
+      updateTable();
+    };
+
+    window.addRecord = function() {
+      const nameEl = document.getElementById("studentName");
+      const gradeEl = document.getElementById("studentGrade");
+      const name = nameEl.value.trim();
+      const gradeValue = gradeEl.value;
+      const grade = parseFloat(gradeValue);
+
+      if (!name || gradeValue === "" || isNaN(grade) || grade < 0 || grade > 100) {
+        alert("Please enter a valid name and a grade between 0 and 100.");
+        return;
+      }
+
+      records.push({ name, grade });
+      nameEl.value = "";
+      gradeEl.value = "";
+      updateTable();
+    };
+
+    function updateTable() {
+      const table = document.getElementById("recordTable");
+      table.innerHTML = "";
+
+      records.forEach((record) => {
+        const row = document.createElement('tr');
+        const tdName = document.createElement('td');
+        tdName.classList.add('name-col');
+        tdName.textContent = record.name;
+        const tdGrade = document.createElement('td');
+        tdGrade.textContent = record.grade;
+        row.appendChild(tdName);
+        row.appendChild(tdGrade);
+        table.appendChild(row);
+      });
+
+      updateAverage();
+      updateChart();
+    }
+
+    function updateAverage() {
+      const total = records.reduce((sum, r) => sum + r.grade, 0);
+      const avg = records.length ? (total / records.length).toFixed(2) : 0;
+      document.getElementById("avgDisplay").innerText = `Average Grade: ${avg}`;
+    }
+
+    function updateChart() {
+      ensureChart();
+      if (!gradesChart) return;
+      // labels: use short timestamps for each record
+      const labels = records.map((r, i) => {
+        // show index + name for clarity
+        return `${i+1} ${r.name}`;
+      });
+      const data = records.map(r => r.grade);
+      gradesChart.data.labels = labels;
+      gradesChart.data.datasets[0].data = data;
+      gradesChart.update();
+    }
+  })();
+  </script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>
